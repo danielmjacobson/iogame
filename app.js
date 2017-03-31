@@ -143,8 +143,7 @@ var Player = function(id){
 		self.spdX = 0;
 		self.spdY = 0;
 		self.radius = init_radius;
-		self.mass = init_mass;
-		
+		self.mass = init_mass;		
 	}
 	Player.list[id] = self;
 	return self;
@@ -196,9 +195,9 @@ var Food = function(){
 		for(var i in Player.list){
 			var player = Player.list[i];
 			if(self.getDistance(player) < player.radius + LINE_WIDTH){
-				player.mass += Math.max(9, player.mass / 100);
+				player.mass += Math.max(25, player.mass / 100);
 				player.recalculateRadius();
-				player.acceleration = 50 / player.mass;
+				player.acceleration = 100 / player.mass;
 				delete Food.list[self.id];
 			}
 		}
@@ -209,7 +208,7 @@ var Food = function(){
 Food.list = {};
 
 Food.update = function(){
-	if(Math.random() < .1){
+	if(Math.random() < .1 && Object.keys(Food.list).length < 200){
 		Food();
 	}	
 	var pack = [];
