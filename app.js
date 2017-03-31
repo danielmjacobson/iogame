@@ -8,7 +8,7 @@ app.get('/',function(req, res) {
 });
 app.use('/client',express.static(__dirname + '/client'));
 
-serv.listen(2000);
+serv.listen(process.env.PORT || 3000);
 console.log("Server started.");
 var SOCKET_LIST = {};
 var GRAVITATIONAL_ATTRACTION_CONSTANT = '200.0';
@@ -67,8 +67,8 @@ var Player = function(id){
 	self.pressingDown = false;
 	self.maxSpd = 10;
 	self.acceleration = 1;
-	self.radius = 10;
-	self.mass = 500;
+	self.radius = 4;
+	self.mass = 50;
 	
 	var super_update = self.update;
 	self.update = function(){
@@ -83,8 +83,7 @@ var Player = function(id){
 				var selfMagnitude = (player.mass * self.getVelocityDiff(player)) / self.mass;
 				self.spdX += selfMagnitude * Math.cos(impactDirection);
 				self.spdY += selfMagnitude * Math.sin(impactDirection);
-				console.log("horizontal factor:" + Math.cos(impactDirection));
-				console.log("vertical factor:" + Math.sin(impactDirection));				
+				console.log("impactdirection: " + impactDirection);			
 				/*var otherMagnitude = (self.mass * self.getVelocityDiff(player)) / player.mass;
 				player.spdX -= otherMagnitude * Math.cos(impactDirection);
 				player.spdY -= otherMagnitude * Math.sin(impactDirection);
