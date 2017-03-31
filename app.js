@@ -12,15 +12,16 @@ serv.listen(process.env.PORT || 3000);
 console.log("Server started.");
 var SOCKET_LIST = {};
 var GRAVITATIONAL_ATTRACTION_CONSTANT = '200.0';
-var ARENA_SIZE = 500;
-var ABSORB_FACTOR = 2;
+var ARENA_WIDTH = 1200;
+var ARENA_HEIGHT = 600;
+var LINE_WIDTH = 3;
 
 var Entity = function(){
-	var colorPallet = ['red','orange','yellow','light green','blue','cyan','magenta'];
+	var colorPallet = ['Cyan', 'DeepPink', 'FireBrick', 'Gold', 'GreenYellow', 'Lime', 'Magenta', 'OrangeRed', 'LightSeaGreen', 'Red']
 	var self = {
-		x:ARENA_SIZE * Math.random(),
-		y:ARENA_SIZE * Math.random(),
-		color:colorPallet[Math.floor(Math.random() *7)],
+		x:ARENA_WIDTH * Math.random(),
+		y:ARENA_HEIGHT * Math.random(),
+		color:colorPallet[Math.floor(Math.random() *10)],
 		spdX:0,
 		spdY:0,
 		id:"",
@@ -33,9 +34,9 @@ var Entity = function(){
 		self.y += self.spdY;
 		
 		//set barriers at current arena size
-		if(self.x > ARENA_SIZE || self.x < 0){
+		if(self.x > ARENA_WIDTH || self.x < 0){
 			self.destroy();
-		} else if(self.y > ARENA_SIZE || self.y < 0){
+		} else if(self.y > ARENA_HEIGHT || self.y < 0){
 			self.destroy();
 		}
 		
@@ -44,22 +45,21 @@ var Entity = function(){
 		return Math.sqrt(Math.pow(self.x-entity.x,2) + Math.pow(self.y-entity.y,2));
 	}
 	self.getDirection = function(entity){
-		return Math.atan2(Math.pow(self.y-entity.y,2), Math.pow(self.x-entity.x,2));
+		return Math.atan2(self.y-entity.y, self.x-entity.x);
 	}
 	self.getVelocityDiff = function(entity){
 		return Math.sqrt(Math.pow(self.spdX-entity.spdX,2) + Math.pow(self.spdY-entity.spdY, 2));
 	}
-	self.destroy = function(){
-		self.x = ARENA_SIZE * Math.random();
-		self.y = ARENA_SIZE * Math.random();
-		self.spdX = 0;
-		self.spdY = 0;
+	self.getVelocity = function(){
+		return Math.sqrt(Math.pow(self.spdX,2) + Math.pow(self.spdY, 2));
 	}
 	return self;
 }
 
 var Player = function(id){
-	var self = Entity();
+	var self = Entity()
+	var init_mass = 100;
+	var init_radius = 5;
 	self.id = id;
 	self.pressingRight = false;
 	self.pressingLeft = false;
@@ -67,8 +67,11 @@ var Player = function(id){
 	self.pressingDown = false;
 	self.maxSpd = 10;
 	self.acceleration = 1;
-	self.radius = 4;
-	self.mass = 50;
+	self.radius = init_radius;
+	self.mass = init_mass;
+	var orbitConstant = 10;
+	var absorbFactor = 1.1;
+	var collisitonFactor =.5;
 	
 	var super_update = self.update;
 	self.update = function(){
@@ -77,22 +80,22 @@ var Player = function(id){
 		
 		for(var i in Player.list){
 			var player = Player.list[i];
-			var line_width = 3;
-			if(self !== player && self.getDistance(player) < player.radius + self.radius + line_width){
-				var impactDirection = self.getDirection(player);
-				var selfMagnitude = (player.mass * self.getVelocityDiff(player)) / self.mass;
-				self.spdX += selfMagnitude * Math.cos(impactDirection);
-				self.spdY += selfMagnitude * Math.sin(impactDirection);
-				console.log("impactdirection: " + impactDirection);			
-				/*var otherMagnitude = (self.mass * self.getVelocityDiff(player)) / player.mass;
-				player.spdX -= otherMagnitude * Math.cos(impactDirection);
-				player.spdY -= otherMagnitude * Math.sin(impactDirection);
-				*/
-				
-				if(self.mass > player.mass * ABSORB_FACTOR){					 
+			if(self !== player && self.getDistance(player) < player.radius + self.radius + LINE_WIDTH){	
+				if(self.mass > player.mass * absorbFactor){ //self will absorb player					 
 					 self.mass += player.mass;
-					 player.destroy;					 
-				}				
+					 self.recalculateRadius();
+					 player.destroy();	
+				} else if (player.mass >= self.mass * absorbFactor){ //we are big enough to live
+					var impactDirection = self.getDirection(player);
+					var selfMagnitude = (collisitonFactor * player.mass * self.getVelocityDiff(player)) / self.mass;
+					self.spdX += selfMagnitude * Math.cos(impactDirection);
+					self.spdY += selfMagnitude * Math.sin(impactDirection);	
+				}
+			} else if(self !== player && self.getDistance(player) < (2*player.radius + orbitConstant)){
+				self.mass++;
+				self.recalculateRadius();
+				player.mass--;
+				player.recalculateRadius();
 			}
 		}
 	}
@@ -125,11 +128,23 @@ var Player = function(id){
 				var angle = Math.atan2(yDisp, xDisp);
 				if(distance > 10){ //TODO: need to set minimal interaction distnace to avoid craziness
 					var attractionMagnitude = GRAVITATIONAL_ATTRACTION_CONSTANT / Math.pow(distance, 2); //add mass calculation later when mass is 
-					//self.spdX -= attractionMagnitude * (player.mass / self.mass) * Math.cos(angle);
-					//self.spdY -= attractionMagnitude * (player.mass / self.mass) * Math.sin(angle);	
+					self.spdX -= attractionMagnitude * (player.mass / self.mass) * Math.cos(angle);
+					self.spdY -= attractionMagnitude * (player.mass / self.mass) * Math.sin(angle);	
 				}
 			}
 		}
+	}
+	self.recalculateRadius = function(){
+		self.radius = Math.sqrt(self.mass/Math.PI);
+	}
+	self.destroy = function(){
+		self.x = ARENA_WIDTH * Math.random();
+		self.y = ARENA_HEIGHT * Math.random();
+		self.spdX = 0;
+		self.spdY = 0;
+		self.radius = init_radius;
+		self.mass = init_mass;
+		
 	}
 	Player.list[id] = self;
 	return self;
@@ -160,7 +175,8 @@ Player.update = function(){
 			x:player.x,
 			y:player.y,
 			color:player.color,
-			radius:player.radius
+			radius:player.radius,
+			mass:player.mass
 		});		
 	}
 	return pack;
@@ -170,8 +186,8 @@ Player.update = function(){
 var Food = function(){
 	var self = Entity();
 	self.id = Math.random();
-	self.x = Math.random() * ARENA_SIZE;
-	self.y = Math.random() * ARENA_SIZE;
+	self.x = Math.random() * ARENA_WIDTH;
+	self.y = Math.random() * ARENA_HEIGHT;
 	
 	var super_update = self.update;
 	self.update = function(){
@@ -179,9 +195,9 @@ var Food = function(){
 		
 		for(var i in Player.list){
 			var player = Player.list[i];
-			if(self.getDistance(player) < player.radius + 1){
-				player.mass += 9;
-				player.radius = Math.floor(Math.sqrt(player.mass/Math.PI));
+			if(self.getDistance(player) < player.radius + LINE_WIDTH){
+				player.mass += Math.max(9, player.mass / 100);
+				player.recalculateRadius();
 				player.acceleration = 50 / player.mass;
 				delete Food.list[self.id];
 			}
@@ -193,7 +209,7 @@ var Food = function(){
 Food.list = {};
 
 Food.update = function(){
-	if(Math.random() < .04 * Player.list.length){
+	if(Math.random() < .1){
 		Food();
 	}	
 	var pack = [];
