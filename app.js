@@ -56,19 +56,21 @@ var Entity = function(){
 	return self;
 }
 
-var Player = function(id){
+var Player = function(id, name){
 	var self = Entity()
 	var init_mass = 100;
 	var init_radius = 5;
+	var init_acceleration = 100;
 	self.id = id;
 	self.pressingRight = false;
 	self.pressingLeft = false;
 	self.pressingUp = false;
 	self.pressingDown = false;
 	self.maxSpd = 10;
-	self.acceleration = 1;
+	self.acceleration = init_acceleration;
 	self.radius = init_radius;
 	self.mass = init_mass;
+	self.name = name;
 	var orbitConstant = 10;
 	var absorbFactor = 1.1;
 	var collisitonFactor =.5;
@@ -83,7 +85,7 @@ var Player = function(id){
 			if(self !== player && self.getDistance(player) < player.radius + self.radius + LINE_WIDTH){	
 				if(self.mass > player.mass * absorbFactor){ //self will absorb player					 
 					 self.mass += player.mass;
-					 self.recalculateRadius();
+					 self.recalculateAfterMassChange();
 					 player.destroy();	
 				} else if (player.mass >= self.mass * absorbFactor){ //we are big enough to live
 					var impactDirection = self.getDirection(player);
@@ -93,9 +95,9 @@ var Player = function(id){
 				}
 			} else if(self !== player && self.getDistance(player) < (2*player.radius + orbitConstant)){
 				self.mass++;
-				self.recalculateRadius();
+				self.recalculateAfterMassChange();
 				player.mass--;
-				player.recalculateRadius();
+				player.recalculateAfterMassChange();
 			}
 		}
 	}
@@ -104,18 +106,14 @@ var Player = function(id){
 	self.updateSpd = function(){
 		//speed changes due to player controls
 		if(self.pressingRight)
-			self.spdX = self.spdX + self.acceleration;
+			self.spdX = self.spdX + self.acceleration / self.mass;
 		else if(self.pressingLeft)
-			self.spdX = self.spdX - self.acceleration;
-		else
-			self.spdX = self.spdX; //can add passive decelleration later
+			self.spdX = self.spdX - self.acceleration / self.mass;
 		
 		if(self.pressingUp)
-			self.spdY = self.spdY - self.acceleration;
+			self.spdY = self.spdY - self.acceleration / self.mass;
 		else if(self.pressingDown)
-			self.spdY = self.spdY + self.acceleration;
-		else
-			self.spdY = self.spdY; //can add passive decelleration later
+			self.spdY = self.spdY + self.acceleration / self.mass;
 
 		//speed change due to gravity
 		//this is where im concerned about performance issues big O(n^2) try to think of better solution
@@ -134,8 +132,9 @@ var Player = function(id){
 			}
 		}
 	}
-	self.recalculateRadius = function(){
+	self.recalculateAfterMassChange = function(){
 		self.radius = Math.sqrt(self.mass/Math.PI);
+		self.acceleration = init_acceleration;
 	}
 	self.destroy = function(){
 		self.x = ARENA_WIDTH * Math.random();
@@ -143,14 +142,15 @@ var Player = function(id){
 		self.spdX = 0;
 		self.spdY = 0;
 		self.radius = init_radius;
-		self.mass = init_mass;		
+		self.mass = init_mass;
+		self.accelleration = 100;
 	}
 	Player.list[id] = self;
 	return self;
 }
 Player.list = {};
-Player.onConnect = function(socket){
-	var player = Player(socket.id);
+Player.onConnect = function(socket, name){
+	var player = Player(socket.id, name);
 	socket.on('keyPress',function(data){
 		if(data.inputId === 'left')
 			player.pressingLeft = data.state;
@@ -161,6 +161,7 @@ Player.onConnect = function(socket){
 		else if(data.inputId === 'down')
 			player.pressingDown = data.state;
 	});
+	socket.emit('init', {selfId: socket.id});
 }
 Player.onDisconnect = function(socket){
 	delete Player.list[socket.id];
@@ -171,6 +172,7 @@ Player.update = function(){
 		var player = Player.list[i];
 		player.update();	
 		pack.push({
+			id:player.id,
 			x:player.x,
 			y:player.y,
 			color:player.color,
@@ -196,8 +198,7 @@ var Food = function(){
 			var player = Player.list[i];
 			if(self.getDistance(player) < player.radius + LINE_WIDTH){
 				player.mass += Math.max(25, player.mass / 100);
-				player.recalculateRadius();
-				player.acceleration = 100 / player.mass;
+				player.recalculateAfterMassChange();
 				delete Food.list[self.id];
 			}
 		}
@@ -228,15 +229,16 @@ io.sockets.on('connection', function(socket){
 	socket.id = Math.random();
 	SOCKET_LIST[socket.id] = socket;
 	
-	Player.onConnect(socket);
+	socket.on('play',function(data){
+			var name = data.name;
+			console.log("player " + name + " joined");
+			Player.onConnect(socket, name);
+	});
 	
 	socket.on('disconnect',function(){
 		delete SOCKET_LIST[socket.id];
 		Player.onDisconnect(socket);
-	});
-	
-	
-	
+	});	
 	
 });
 
