@@ -1,4 +1,20 @@
 <canvas id="ctx" width="1200" height="600" style="border:1px solid #000000;"></canvas>
+
+<div class='leaderboard' style="float: right;font:10px Arial;">
+	<h1><span id="leaderboard">Leaderboard </span></h1>
+	<div class="score" id ="leaderboard1"> </div>
+	<div class="score" id ="leaderboard2"> </div>
+	<div class="score" id ="leaderboard3"> </div>
+	<div class="score" id ="leaderboard4"> </div>
+	<div class="score" id ="leaderboard5"> </div>
+	<div class="score" id ="leaderboard6"> </div>
+	<div class="score" id ="leaderboard7"> </div>
+	<div class="score" id ="leaderboard8"> </div>
+	<div class="score" id ="leaderboard9"> </div>
+	<div class="score" id ="leaderboard10"> </div>
+    <div class="score" id ="userscore"> </div>
+</div>
+
 <div class="startMenu" style="z-index: 1">
 	<input type="text" id="nameInput" placeholder="Enter Name" maxlength="15"> 
     <button name="mysubmitbutton" id="mysubmitbutton" onclick="enterGame()"; class="customButton">  
@@ -6,12 +22,7 @@
     </button>  
 </form>  
 </div>
-<!--
-<div class='leaderboard' style="float: right;font:10px Arial;">
-	<h1><span id="leaderboard">leaderboard</span></h1>
-    <div class="score" id ="userscore"> :( no score </div>
-</div>
--->
+
 
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script>
@@ -50,6 +61,43 @@
 			var food = data.food[i];
 			ctx.fillStyle = 'white';
 			ctx.fillRect(food.x-1,food.y-1,3,3);
+		}
+	});
+	
+	socket.on('updateLeaderboard',function(data){
+		var leaderboard = [];
+		for(var i = 0 ; i < data.player.length; i++){
+			ctx.beginPath();
+			var player = data.player[i];			
+			var id = player.id;
+			var mass = player.mass;
+			var name = player.name;
+			leaderboard.push({
+				"id":id,
+				"mass":mass,
+				"name":name
+			});	
+		}
+		leaderboard.sort(function(a, b) {
+			return b.mass - a.mass; //comparator so that larger mass elements are first
+		});
+		
+		for(leaderboardPos = 0; leaderboardPos < 10; leaderboardPos++){
+			if(leaderboard[leaderboardPos]){
+				var leader = leaderboard[leaderboardPos];
+				var dispPos = 1 + leaderboardPos; //due to 0 indexing
+				document.getElementById('leaderboard' + dispPos).textContent =  dispPos + " : " +leader.name + " - " + leader.mass;			
+			}
+		}
+		if(selfId){
+			pos = leaderboard.map(function(e) { return e.id; }).indexOf(selfId);
+			if(pos >= 10){
+				document.getElementById('userscore').style.visibility='visible';
+				document.getElementById('userscore').textContent =  1 + pos + " : " +leaderboard[pos].name + " - " + leaderboard[pos].mass;
+			} else {
+				document.getElementById('userscore').style.visibility='hidden';
+			}
+			
 		}
 	});
 

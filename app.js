@@ -116,7 +116,7 @@ var Player = function(id, name){
 			self.spdY = self.spdY + self.acceleration / self.mass;
 
 		//speed change due to gravity
-		//this is where im concerned about performance issues big O(n^2) try to think of better solution
+		//this is where im concerned about performance issues big O(n^2) try to think of better solution, doesnt matter now with few players
 		for(var i in Player.list){	
 			var player = Player.list[i];
 			if(player.id !== self.id){
@@ -182,6 +182,19 @@ Player.update = function(){
 	}
 	return pack;
 }
+Player.updateScore = function(){
+	var pack = [];
+	for(var i in Player.list){
+		var player = Player.list[i];
+		player.update();	
+		pack.push({
+			id:player.id,
+			name: player.name,
+			mass:player.mass
+		});		
+	}
+	return pack;
+}
 
 
 var Food = function(){
@@ -197,7 +210,7 @@ var Food = function(){
 		for(var i in Player.list){
 			var player = Player.list[i];
 			if(self.getDistance(player) < player.radius + LINE_WIDTH){
-				player.mass += Math.max(25, player.mass / 100);
+				player.mass += Math.max(25, Math.floor(player.mass / 100));
 				player.recalculateAfterMassChange();
 				delete Food.list[self.id];
 			}
@@ -242,7 +255,7 @@ io.sockets.on('connection', function(socket){
 	
 });
 
-setInterval(function(){
+setInterval(function(){ //updates 25 FPS
 	var pack = {
 		player:Player.update(),
 		food:Food.update(),
@@ -253,3 +266,14 @@ setInterval(function(){
 		socket.emit('newPositions',pack);
 	}
 },1000/25);
+
+setInterval(function(){ //updates the score every second
+	var pack = {
+		player:Player.updateScore(),
+	}
+	
+	for(var i in SOCKET_LIST){
+		var socket = SOCKET_LIST[i];
+		socket.emit('updateLeaderboard',pack);
+	}
+},1000);
